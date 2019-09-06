@@ -13,6 +13,8 @@ This will be done with 2 steps:
   1. First step is to clone the project url 
   2. Before building up the pipeline project you need to configure jenkinsfile
 
+Note: to run the pipeline script you have to make sure that you have jenkins credentials for aws(with id: kubernetes-aws-client) and ssh connection (with id: KEY_AWS)
+
 # manual way
 first we need to be root user
 
