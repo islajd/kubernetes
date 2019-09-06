@@ -52,7 +52,7 @@ change command properties with desired cluster values
    --ssh-public-key /root/.ssh/id_rsa.pub \
    --state s3://k8s.xlajd.io --dns-zone *(dns ip) --dns private --yes
 # start cluster
-now you need to stimul your cluster to run
+now you need to simulate your cluster to run
 use the following command to start
  - kops update cluster k8s.xlajd.io --state s3://k8s.xlajd.io --yes
 
