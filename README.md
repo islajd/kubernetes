@@ -46,4 +46,14 @@ Note: before creating the cluster config you need to make sure you have a valind
 
 # create cluster configurations
 change command properties with desired cluster values
-  - kops create cluster k8s.xlajd.io --node-count 2 --zones us-east-2b --node-size t2.micro --master-size t2.micro --master-volume-size 8 --node-volume-size 8 --ssh-public-key /root/.ssh/id_rsa.pub --state s3://k8s.xlajd.io --dns-zone *(dns ip) --dns private --yes
+  - kops create cluster k8s.xlajd.io --node-count 2 --zones us-east-2b \
+   --node-size t2.micro --master-size t2.micro \
+   --master-volume-size 8 --node-volume-size 8 \
+   --ssh-public-key /root/.ssh/id_rsa.pub \
+   --state s3://k8s.xlajd.io --dns-zone *(dns ip) --dns private --yes
+# start cluster
+now you need to stimul your cluster to run
+use the following command to start
+ - kops update cluster k8s.xlajd.io --state s3://k8s.xlajd.io --yes
+
+
