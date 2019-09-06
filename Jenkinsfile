@@ -9,7 +9,7 @@ node{
         [[
             $class: 'AmazonWebServicesCredentialsBinding',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'aws-client',  // ID of credentials in Jenkins
+            credentialsId: 'kubernetes-aws-client',  // ID of credentials in Jenkins
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         ]]) {
         stage("create EC2 instance"){
@@ -46,7 +46,7 @@ node{
         ]]) {
             stage("create s3 bucket"){
                 sh 'aws configure set region us-east-2'
-                //sh 'aws s3 mb s3://k8s.xlajd.io'
+                sh 'aws s3 mb s3://k8s.xlajd.io'
             }
             stage("generate ssh-keygen"){
                 sh 'sudo ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa -y'
