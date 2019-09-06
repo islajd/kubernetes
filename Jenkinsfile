@@ -14,7 +14,7 @@ node{
         ]]) {
         stage("create EC2 instance"){
             sh 'aws configure set region us-east-2'
-            ID = sh (script: 'aws ec2 run-instances --image-id ami-05c1fa8df71875112 --count 1 --instance-type t2.micro --key-name KEY_AWS --security-group-ids sg-d77dc5b4 --subnet-id subnet-a9541dd3 --region us-east-2 --query \'Instances[0].InstanceId\'',returnStdout: true)
+            ID = sh (script: 'aws ec2 run-instances --image-id ami-05c1fa8df71875112 --count 1 --instance-type t2.micro --key-name amazonkey --security-group-ids sg-ea228589 --subnet-id subnet-d54bfd99 --region us-east-2 --query \'Instances[0].InstanceId\'',returnStdout: true)
         }
         stage("get the EC2 external ip"){
             remote.host = sh (script: "aws ec2 describe-instances --query \'Reservations[0].Instances[0].PublicIpAddress\' --instance-ids $ID",returnStdout: true)
