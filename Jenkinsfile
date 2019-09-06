@@ -9,7 +9,7 @@ node{
         [[
             $class: 'AmazonWebServicesCredentialsBinding',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'kubernetes-aws-client',  // ID of credentials in Jenkins
+            credentialsId: 'evaldID',  // ID of credentials in Jenkins
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         ]]) {
         stage("create EC2 instance"){
@@ -20,7 +20,7 @@ node{
             remote.host = sh (script: "aws ec2 describe-instances --query \'Reservations[0].Instances[0].PublicIpAddress\' --instance-ids $ID",returnStdout: true)
         }
     }
-    withCredentials([sshUserPrivateKey(credentialsId: 'KEY_AWS', keyFileVariable: 'identity', passphraseVariable: '', usernameVariable: 'userName')]) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu', keyFileVariable: 'identity', passphraseVariable: '', usernameVariable: 'userName')]) {
       remote.user = userName
       remote.identityFile = identity
       stage("install awscli") {
@@ -41,7 +41,7 @@ node{
         [[
             $class: 'AmazonWebServicesCredentialsBinding',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'kubernetes-aws-client',  // ID of credentials in jenkins
+            credentialsId: 'evaldID',  // ID of credentials in jenkins
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         ]]) {
             stage("create s3 bucket"){
