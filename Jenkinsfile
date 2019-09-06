@@ -41,7 +41,7 @@ node{
         [[
             $class: 'AmazonWebServicesCredentialsBinding',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'aws-client',  // ID of credentials in jenkins
+            credentialsId: 'kubernetes-aws-client',  // ID of credentials in jenkins
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         ]]) {
             stage("create s3 bucket"){
@@ -54,11 +54,7 @@ node{
             stage("create cluster configurations"){
                 sh 'sudo chmod -R 777 /root/'
                 sh 'sudo chmod -R 777 /root/.ssh/'
-                sh "kops create cluster k8s.xlajd.io --node-count 2 --zones us-east-2b \
-                    --node-size t2.micro --master-size t2.micro \
-                    --master-volume-size 8 --node-volume-size 8 \
-                    --ssh-public-key /root/.ssh/id_rsa.pub \
-                    --state s3://k8s.xlajd.io --dns-zone Z1C7GMSKIJLFNI --dns private --yes"
+                sh "kops create cluster k8s.xlajd.io --node-count 2 --zones us-east-2b --node-size t2.micro --master-size t2.micro --master-volume-size 8 --node-volume-size 8 --ssh-public-key /root/.ssh/id_rsa.pub --state s3://k8s.xlajd.io --dns-zone Z1C7GMSKIJLFNI --dns private --yes"
                 sh 'sudo chmod -R 700 /root/.ssh/'
                 sh 'sudo chmod -R 700 /root/'
             }
