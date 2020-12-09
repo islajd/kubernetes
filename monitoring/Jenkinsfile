@@ -1,0 +1,138 @@
+def remote = [:]
+remote.name = "ubuntu"
+remote.allowAnyHosts = true
+def ID
+def IP
+def STATE
+node{
+    withCredentials(
+        [[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            credentialsId: 'aws-client',  // ID of credentials in Jenkins
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+        stage("create EC2 instance"){
+            sh 'aws configure set region us-east-2'
+            ID = sh (script: 'aws ec2 run-instances --image-id ami-05c1fa8df71875112 --count 1 --instance-type t2.micro --key-name KEY_AWS --security-group-ids sg-d77dc5b4 --subnet-id subnet-a9541dd3 --region us-east-2 --query \'Instances[0].InstanceId\'',returnStdout: true)
+        }
+        stage("get the EC2 external ip"){
+            remote.host = sh (script: "aws ec2 describe-instances --query \'Reservations[0].Instances[0].PublicIpAddress\' --instance-ids $ID",returnStdout: true)
+        }
+        withCredentials([sshUserPrivateKey(credentialsId: 'KEY_AWS', keyFileVariable: 'identity', passphraseVariable: '', usernameVariable: 'userName')]) {
+          remote.user = userName
+          remote.identityFile = identity
+          stage("install awscli") {
+                sh 'sudo apt-get update'
+                sh 'sudo apt-get install awscli -y'
+          }
+          stage("install kops"){
+                sh 'curl -LO https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d \'\"\' -f 4)/kops-linux-amd64 ' 
+                sh 'chmod +x kops-linux-amd64'
+                sh 'sudo mv kops-linux-amd64 /usr/local/bin/kops'
+          }
+          stage("install kubectl"){
+                sh 'curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl'
+                sh 'chmod +x ./kubectl'
+                sh 'sudo mv ./kubectl /usr/local/bin/kubectl'
+          }
+          withCredentials(
+            [[
+                $class: 'AmazonWebServicesCredentialsBinding',
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                credentialsId: 'aws-client',  // ID of credentials in kubernetes
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]]) {
+                stage("create s3 bucket"){
+                    sh 'aws configure set region us-east-2'
+                    //sh 'aws s3 mb s3://k8s.xlajd.io'
+                }
+                stage("generate ssh-keygen"){
+                    sh 'sudo ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa -y'
+                }
+                stage("create cluster configurations"){
+                    sh 'sudo chmod -R 777 /root/'
+                    sh 'sudo chmod -R 777 /root/.ssh/'
+                    sh "kops create cluster k8s.xlajd.io --node-count 2 --zones us-east-2b --node-size t2.micro --master-size t2.micro --master-volume-size 8 --node-volume-size 8 --ssh-public-key /root/.ssh/id_rsa.pub --state s3://k8s.xlajd.io --dns-zone Z1C7GMSKIJLFNI --dns private --yes"
+                    sh 'sudo chmod -R 700 /root/.ssh/'
+                    sh 'sudo chmod -R 700 /root/'
+                }
+                stage("create the cluser"){
+                    sh 'kops update cluster k8s.xlajd.io --state s3://k8s.xlajd.io --yes'
+                }
+                stage('Wait for kubernetes to start') {
+                    waitUntil{
+                        try{        
+                            sh "kubectl get nodes"
+                            return true
+                        }catch (Exception e){
+                            return false
+                        }
+                    }
+                    sh "kubectl get nodes"
+                }
+                stage("create the pod with test image"){
+                    sh 'kubectl run test --image=islajd/test:firsttry --port=8080'
+                }
+                stage("expose the pod and run the container"){
+                    sh 'kubectl expose deployment test --type=LoadBalancer --port=8080'
+                }
+                stage("activate the autoscaling"){
+                    sh 'kubectl autoscale deployment test --cpu-percent=70 --min=2 --max=5'
+                }
+            stage ("Verifications"){
+                sh 'kubectl cluster-info'
+                sh 'kubectl get nodes'
+                sh 'kubectl version --short'
+            }
+            stage ("Helm Installation"){
+                sh 'curl -LO https://git.io/get_helm.sh'
+                sh 'chmod 700 get_helm.sh'
+                sh './get_helm.sh'
+            }
+            stage("Create the Tiller Service Account"){
+                sh 'kubectl apply -f https://raw.githubusercontent.com/islajd/kubernetes-prometheus-grafana/master/helm/service-account.yml'
+                sh 'kubectl get serviceaccounts -n kube-system'
+            }
+            stage("Create the service account role binding"){
+                sh 'kubectl apply -f https://raw.githubusercontent.com/islajd/kubernetes-prometheus-grafana/master/helm/role-binding.yml'
+                sh 'kubectl get clusterrolebindings.rbac.authorization.k8s.io'
+            }
+            stage("Deploy Tiller"){
+                sh 'helm init --service-account tiller --wait'
+                sh 'kubectl get pods -n kube-system'
+            }
+            stage("Create namespace"){
+                sh 'kubectl apply -f https://raw.githubusercontent.com/islajd/kubernetes-prometheus-grafana/master/monitoring/namespace.yml'
+                sh 'kubectl get namespaces'
+            }
+            stage ("Deploy Prometheus"){
+                sh 'helm repo update'
+                sh 'helm install stable/prometheus --namespace monitoring --name prometheus --set server.service.type=LoadBalancer --set server.service.servicePort=8082'
+                sh 'kubectl get pods -n monitoring'
+            }
+            stage("Defining the grafana data sources"){
+                sh 'kubectl apply -f https://raw.githubusercontent.com/islajd/kubernetes-prometheus-grafana/master/monitoring/grafana/config.yml'
+                sh 'kubectl get configmaps -n monitoring'
+            }
+            stage("Deploy Grafana"){
+                sh 'helm install stable/grafana --namespace monitoring --name grafana --set service.type=LoadBalancer --set service.port=8081 --set persistence.enabled=true'
+                sh 'kubectl get pods -n monitoring'
+            }
+            stage("Get Grafana Password"){
+                sh 'kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}"| base64 --decode ; echo'
+            }
+            stage("describe pipiline results"){
+                sh 'sleep 30s'
+                sh 'kubectl describe services'
+                sh 'kubectl get pods -n monitoring'
+                sh 'kubectl describe service prometheus -n monitoring'
+                sh 'kubectl describe service grafana -n monitoring'
+                // sh 'helm del --purge prometheus' 
+                // sh 'helm del --purge grafana' 
+                // sh 'kubectl delete namespaces monitoring'
+            }
+            }
+        }
+    }
+}
